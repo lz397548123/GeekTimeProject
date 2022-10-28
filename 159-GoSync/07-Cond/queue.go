@@ -9,7 +9,7 @@ import (
 type Queue struct {
 	cond *sync.Cond
 	data []interface{}
-	capc int
+	caps int
 	logs []string
 }
 
@@ -17,7 +17,7 @@ func NewQueue(capacity int) *Queue {
 	return &Queue{
 		cond: &sync.Cond{L: &sync.Mutex{}},
 		data: make([]interface{}, 0),
-		capc: capacity,
+		caps: capacity,
 		logs: make([]string, 0),
 	}
 }
@@ -26,7 +26,7 @@ func (q *Queue) Enqueue(d interface{}) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 
-	for len(q.data) == q.capc {
+	for len(q.data) == q.caps {
 		q.cond.Wait()
 	}
 	// FIFO 入队
