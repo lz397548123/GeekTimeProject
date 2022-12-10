@@ -34,6 +34,28 @@ type entry struct {
 	p unsafe.Pointer // *interface{}
 }
 
+func (m *Map) Load(key any) (value any, ok bool) {
+	// 首先从read处理
+	read, _ := m.read.Load().(readOnly)
+	e, ok := read.m[key]
+	if !ok && read.amended { // 如果不存在并且dirty不为nil（有新元素）
+		m.mu.Lock()
+		// 双检查，看看read中现在是否存在此key
+		read, _ := m.read.Load().(readOnly)
+		e, ok = read.m[key]
+		if !ok && read.amended { // 依然不存在，并且dirty不为nil
+			e, ok = m.dirty[key] // 从dirty中读取
+			// 不管dirty中存不存在，miss数都加1
+			m.missLocked()
+		}
+		m.mu.Unlock()
+	}
+	if !ok {
+		return nil, false
+	}
+	return e.load() // 返回读取的对象，e即可能是从read中获得的，也可能是从dirty中获得的
+}
+
 // 用来设置一个键值对，或者更新一个键值对
 func (m *Map) Store(key, value any) {
 	read, _ := m.read.Load().(readOnly)
@@ -64,18 +86,76 @@ func (m *Map) Store(key, value any) {
 	m.mu.Unlock()
 }
 
-func (m *Map) dirtyLocked() {
-	if m.dirty != nil {
+func (m *Map) LoadAndDelete(key any) (value any, loaded bool) {
+	read, _ := m.read.Load().(readOnly)
+	e, ok := read.m[key]
+	if !ok && read.amended {
+		m.mu.Lock()
+		// 双检查
+		read, _ = m.read.Load().(readOnly)
+		e, ok = read.m[key]
+		if !ok && read.amended {
+			e, ok = m.dirty[key]
+			// 这一行长坤在1.15中实现的时候忘记加上了，导致在特殊的场景下有些key总是没有被回收
+			delete(m.dirty, key)
+			// miss数加1
+			m.missLocked()
+		}
+		m.mu.Unlock()
+	}
+	if !ok {
+		return e.delete()
+	}
+	return nil, false
+}
+
+func (m *Map) Delete(key any) {
+	m.LoadAndDelete(key)
+}
+
+func (e *entry) delete() (value any, ok bool) {
+	for {
+		p := atomic.LoadPointer(&e.p)
+		if p == nil || p == expunged {
+			return nil, false
+		}
+		if atomic.CompareAndSwapPointer(&e.p, p, nil) {
+			return *(*any)(p), true
+		}
+	}
+}
+
+func (m *Map) missLocked() {
+	m.misses++                   // misses计数加一
+	if m.misses < len(m.dirty) { // 如果没达到阈值(dirty字段的长度)，返回
 		return
 	}
 
-	read, _ := m.read.Load().(readOnly)
+	m.read.Store(readOnly{m: m.dirty}) // 把dirty字段的内存提升为read字段
+	m.dirty = nil                      // 清空dirty
+	m.misses = 0                       // misses数重置为0
+}
+
+func (m *Map) dirtyLocked() {
+	if m.dirty != nil { // 如果dirty字段存在，不需要创建了
+		return
+	}
+
+	read, _ := m.read.Load().(readOnly) // 获取read字段
 	m.dirty = make(map[any]*entry, len(read.m))
-	for k, e := range read.m {
-		if !e.tryExpungeLocked() {
+	for k, e := range read.m { // 遍历read字段
+		if !e.tryExpungeLocked() { // 把非punged的键值对复制到dirty中
 			m.dirty[k] = e
 		}
 	}
+}
+
+func (e *entry) load() (value any, ok bool) {
+	p := atomic.LoadPointer(&e.p)
+	if p == nil || p == expunged {
+		return nil, false
+	}
+	return *(*any)(p), true
 }
 
 // 如果entry没有被删除，tryStore会存储一个值。
