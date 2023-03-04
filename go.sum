@@ -1,6 +1,6 @@
-github.com/bradfitz/gomemcache v0.0.0-20221031212613-62deef7fc822 h1:hjXJeBcAMS1WGENGqDpzvmgS43oECTx8UXq31UBu0Jw=
-github.com/bradfitz/gomemcache v0.0.0-20221031212613-62deef7fc822/go.mod h1:H0wQNHz2YrLsuXOZozoeDmnHXkNCRmMW0gwFWDfEZDA=
 github.com/petermattis/goid v0.0.0-20220824145935-af5520614cb6 h1:CoZdAHg4WQNvhnyqCxKEDlRRnsvEafj0RPTF9KBGi58=
 github.com/petermattis/goid v0.0.0-20220824145935-af5520614cb6/go.mod h1:pxMtw7cyUw6B2bRH0ZBANSPg+AoSud1I1iyJHI69jH4=
+golang.org/x/sync v0.1.0 h1:wsuoTGHzEhffawBOhz5CYhcrV4IdKZbEyZjBMuTp12o=
+golang.org/x/sync v0.1.0/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 gopkg.in/fatih/pool.v2 v2.0.0 h1:xIFeWtxifuQJGk/IEPKsTduEKcKvPmhoiVDGpC40nKg=
 gopkg.in/fatih/pool.v2 v2.0.0/go.mod h1:8xVGeu1/2jr2wm5V9SPuMht2H5AEmf5aFMGSQixtjTY=
